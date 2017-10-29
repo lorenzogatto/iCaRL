@@ -15,7 +15,7 @@ def reading_data_and_preparing_network(files_from_cl, gpu, itera, batch_size, tr
     ### Network and loss function  
     mean_img = tf.constant([123.68, 116.779, 103.939], dtype=tf.float32, shape=[1, 1, 1, 3], name='img_mean')
     with tf.variable_scope('ResNet18'):
-        with tf.device('/gpu:'+gpu):
+        with tf.device('/cpu:'+gpu): #it was cpu
             scores         = utils_resnet.ResNet18(image_batch-mean_img, phase='test',num_outputs=nb_cl*nb_groups)
             graph          = tf.get_default_graph()
             op_feature_map = graph.get_operation_by_name('ResNet18/pool_last/avg').outputs[0]
@@ -54,12 +54,12 @@ def load_class_in_feature_space(files_from_cl,batch_size,scores, label_batch,los
 Returns two equivalent resnet networks
 '''
 #the second one is used as backup of first one to calculate old sigmoid values
-def prepare_networks(gpu,image_batch, nb_cl, nb_groups):
+def prepare_networks(gpu,image_batch, nb_classes):
   mean_img = tf.constant([123.68, 116.779, 103.939], dtype=tf.float32, shape=[1, 1, 1, 3], name='img_mean')
   scores   = []
   with tf.variable_scope('ResNet18'):
     with tf.device('/gpu:' + gpu):
-        score = utils_resnet.ResNet18(image_batch-mean_img, phase='train',num_outputs=nb_cl*nb_groups)
+        score = utils_resnet.ResNet18(image_batch-mean_img, phase='train',num_outputs=nb_classes)
         scores.append(score)
     
     scope = tf.get_variable_scope()
@@ -70,7 +70,7 @@ def prepare_networks(gpu,image_batch, nb_cl, nb_groups):
   scores_stored   = []
   with tf.variable_scope('store_ResNet18'):
     with tf.device('/gpu:' + gpu):
-        score = utils_resnet.ResNet18(image_batch-mean_img, phase='test',num_outputs=nb_cl*nb_groups)
+        score = utils_resnet.ResNet18(image_batch-mean_img, phase='test',num_outputs=nb_classes)
         scores_stored.append(score)
     
     scope = tf.get_variable_scope()
