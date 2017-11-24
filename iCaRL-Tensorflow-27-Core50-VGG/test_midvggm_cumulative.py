@@ -1,6 +1,7 @@
 import tensorflow as tf
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
+config.allow_soft_placement = True
 import numpy as np
 import scipy
 import cPickle
@@ -11,64 +12,44 @@ import sys
 # Syspath for the folder with the utils files
 #sys.path.insert(0, "/data/sylvestre")
 
-import utils_resnet
-import utils_icarl
-import utils_data
+import utils_icarl_core50
+import utils_data_core50
 
 ######### Modifiable Settings ##########
+num_classes = 50
 batch_size = 128            # Batch size
-nb_cl      = 100             # Classes per group 
-nb_groups  = 10             # Number of groups
-top        = 5              # Choose to evaluate the top X accuracy 
-is_cumul   = 'cumul'        # Evaluate on the cumul of classes if 'cumul', otherwise on the first classes
+nb_groups  = 9              # Number of groups
+top        = 1              # Choose to evaluate the top X accuracy
 gpu        = '0'            # Used GPU
 ########################################
 
 ######### Paths  ##########
-# Working station 
-devkit_path = '/home/srebuffi'
-train_path  = '/data/datasets/imagenets72'
-save_path   = '/data/srebuffi/backup/'
+# Working station
+execution = sys.argv[1]
+
+devkit_path = '/home/lgatto/core50_batches_filelists/batches_filelists/'+execution
+train_path = '/home/admin/core50_128x128'
+save_path = '/home/lgatto/core50/savevgg/'+execution+'/'
 
 ###########################
 
-# Load ResNet settings
-str_mixing = str(nb_cl)+'mixing.pickle'
-with open(str_mixing,'rb') as fp:
-    mixing = cPickle.load(fp)
-
-str_settings_resnet = str(nb_cl)+'settings_resnet.pickle'
-with open(str_settings_resnet,'rb') as fp:
-    order       = cPickle.load(fp)
-    files_valid = cPickle.load(fp)
-    files_train = cPickle.load(fp)
-
+file_suffix = execution.replace('/', '')
+nb_proto = int(sys.argv[2])
 # Load class means
-str_class_means = str(nb_cl)+'class_means.pickle'
+str_class_means = 'class_means'+file_suffix+str(nb_proto)+'.pickle'
 with open(str_class_means,'rb') as fp:
       class_means = cPickle.load(fp)
 
 # Loading the labels
-labels_dic, label_names, validation_ground_truth = utils_data.parse_devkit_meta(devkit_path)
+files_test, labels_test = utils_data_core50.prepare_test_files(devkit_path)
 
 # Initialization
 acc_list = np.zeros((nb_groups,3))
 
-for itera in range(nb_groups):
+for itera in range(1):
     print("Processing network after {} increments\t".format(itera))
-    # Evaluation on cumul of classes or original classes
-    if is_cumul == 'cumul':
-        eval_groups = np.array(range(itera+1))
-    else:
-        eval_groups = [0]
     
-    print("Evaluation on batches {} \t".format(eval_groups))
-    # Load the evaluation files
-    files_from_cl = []
-    for i in eval_groups:
-        files_from_cl.extend(files_valid[i])
-    
-    inits,scores,label_batch,loss_class,file_string_batch,op_feature_map = utils_icarl.reading_data_and_preparing_network(files_from_cl, gpu, itera, batch_size, train_path, labels_dic, mixing, nb_groups, nb_cl, save_path) 
+    inits,scores,label_batch,loss_class,file_string_batch,op_feature_map = utils_icarl_core50.reading_data_and_preparing_network(files_test, labels_test, gpu, itera, batch_size, train_path, num_classes, save_path, nb_proto)
     
     with tf.Session(config=config) as sess:
         # Launch the prefetch system
@@ -81,9 +62,9 @@ for itera in range(nb_groups):
         stat_icarl = []
         stat_ncm     = []
         
-        for i in range(int(np.ceil(len(files_from_cl)/batch_size))):
+        for i in range(int(np.ceil(len(files_test)/batch_size))):
             sc, l , loss,files_tmp,feat_map_tmp = sess.run([scores, label_batch,loss_class,file_string_batch,op_feature_map])
-            mapped_prototypes = feat_map_tmp[:,0,0,:]
+            mapped_prototypes = feat_map_tmp#[:,0,0,:]
             pred_inter    = (mapped_prototypes.T)/np.linalg.norm(mapped_prototypes.T,axis=0)
             sqd_icarl     = -cdist(class_means[:,:,0,itera].T, pred_inter.T, 'sqeuclidean').T
             sqd_ncm       = -cdist(class_means[:,:,1,itera].T, pred_inter.T, 'sqeuclidean').T
@@ -103,4 +84,4 @@ for itera in range(nb_groups):
     tf.reset_default_graph()
 
 
-np.save('results_top'+str(top)+'_acc_'+is_cumul+'_cl'+str(nb_cl),acc_list)
+np.save('results_top'+str(top)+'_acc__cl',acc_list)

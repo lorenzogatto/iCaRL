@@ -18,15 +18,15 @@ import sys
 
 ######### Modifiable Settings ##########
 num_classes = 50  # Total number of classes
-num_classes_itera = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50]  # Total number of classes for each iteration
+num_classes_itera = [0, 50, 50, 50, 50, 50, 50, 50, 50, 50]  # Total number of classes for each iteration
 
 batch_size = 128             # Batch size 128
 #nb_val = 50                 # Validation samples per class
 # nb_cl = 100                # Classes per group 100
 nb_groups = 9                # Number of groups 10
-epochs = 10                  # Total number of epochs 60
-lr_old = 0.004               # Initial learning rate
-lr_old_other_batches = 0.01  # Initial learning rate in batches other than the first
+epochs = 15                  # Total number of epochs 60
+lr_old = 0.01               # Initial learning rate
+lr_old_other_batches = 0.04  # Initial learning rate in batches other than the first
 lr_strat = [5]               # Epochs where learning rate gets decreased
 lr_factor = 5.               # Learning rate decrease factor
 gpu = '0'                    # Used GPU
@@ -67,19 +67,18 @@ labels_train = [None for i in range(nb_groups)]
 for itera in range(nb_groups):
     files_train[itera], labels_train[itera] = utils_data_core50.prepare_train_files(train_path, devkit_path, itera)
 
-tf.set_random_seed(1000)
 
 ### Start of the main algorithm ###
 
 for itera in range(1):
-    labels_from_cl = labels_train[itera][:]
+    labels_from_cl = labels_train[8][:]
     # print(files_train[:5])
     # print(label_train[:5])
     # Files to load : training samples + protoset
     print('Batch of classes number {0} arrives ...'.format(itera + 1))
     # Adding the stored exemplars to the training set
     if itera == 0:
-        files_from_cl = files_train[itera]
+        files_from_cl = files_train[8]
     else:
         files_from_cl = files_train[itera][:]
         for i in range(num_classes_itera[itera]):
@@ -101,9 +100,7 @@ for itera in range(1):
         # No distillation
         variables_graph, variables_graph2, scores, scores_stored = utils_icarl_core50.prepare_networks(gpu, image_batch,
                                                                                                        num_classes)
-        for v in variables_graph:
-            print(v.name)
-        sys.exit(0)
+
         # Define the objective for the neural network: 1 vs all cross_entropy
         with tf.device('/gpu:0'):
             scores = tf.concat(scores, 0)  # puts elements of scores in rows
@@ -151,8 +148,8 @@ for itera in range(1):
         sess.run(tf.global_variables_initializer())
         lr = lr_old
         # initialize the network at first iteration with imagenet pretrain
-        #if itera == 0:
-        #    utils_vgg.initialize_imagenet("vggm.npy", sess)
+        if itera == 0:
+            utils_vgg.initialize_imagenet("vggm.npy", sess)
         # Run the loading of the weights for the learning network and the copy network
         if itera > 0:
             void0 = sess.run([(variables_graph[i]).assign(save_weights[i]) for i in range(len(variables_graph))])
@@ -201,8 +198,8 @@ for itera in range(1):
 
     #files_train, labels_train = utils_data_core50.prepare_train_files(train_path, devkit_path, itera)
 
-    files_from_cl = files_train[itera]
-    labels_from_cl = labels_train[itera]
+    files_from_cl = files_train[8]
+    labels_from_cl = labels_train[8]
     print("Preparing network for exemplar management part")
     inits, scores, label_batch, loss_class, file_string_batch, op_feature_map = utils_icarl_core50.reading_data_and_preparing_network(
         files_from_cl, labels_from_cl, gpu, itera, batch_size, train_path, num_classes, save_path, nb_proto)
@@ -247,11 +244,12 @@ for itera in range(1):
     # Reset the graph
     tf.reset_default_graph()
 
+    print(files_protoset)
     # Class means for iCaRL and NCM
     print('Computing theoretical class means for NCM and mean-of-exemplars for iCaRL ...')
     for iteration2 in range(itera + 1):
-        files_from_cl = files_train[iteration2]
-        labels_from_cl = labels_train[iteration2]
+        files_from_cl = files_train[8]
+        labels_from_cl = labels_train[8]
         #print('Files from cl' + str(files_from_cl));
         #print('labels_from_cl' + labels_from_cl);
         inits, scores, label_batch, loss_class, file_string_batch, op_feature_map = utils_icarl_core50.reading_data_and_preparing_network(

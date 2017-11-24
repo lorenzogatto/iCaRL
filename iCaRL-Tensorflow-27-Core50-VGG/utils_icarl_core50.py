@@ -24,7 +24,7 @@ def reading_data_and_preparing_network(files_from_cl, labels_train, gpu, itera, 
             op_feature_map = graph.get_operation_by_name('ResNet18/mid_fc7/ResNet18/mid_fc7').outputs[0]
     
     loss_class = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=label_batch_one_hot, logits=scores))
-    
+    print(save_path+str(nb_proto)+'model-iteration-%i.pickle' % itera)
     ### Initilization
     params = dict(cPickle.load(open(save_path+str(nb_proto)+'model-iteration-%i.pickle' % itera, "r")))
     inits  = utils_vgg.get_weight_initializer(params)
