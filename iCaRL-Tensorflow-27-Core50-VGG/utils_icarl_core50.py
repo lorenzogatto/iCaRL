@@ -13,7 +13,7 @@ def reading_data_and_preparing_network(files_from_cl, labels_train, gpu, itera, 
     label_batch_one_hot = tf.one_hot(label_batch, num_classes)
     
     ### Network and loss function  
-    mean_img = tf.constant([123.68, 116.779, 103.939], dtype=tf.float32, shape=[1, 1, 1, 3], name='img_mean')
+    mean_img = tf.constant([123, 117, 104], dtype=tf.float32, shape=[1, 1, 1, 3], name='img_mean')
     with tf.variable_scope('ResNet18'):
         with tf.device('/gpu:'+gpu):
             scores         = utils_vgg.VGGM(image_batch-mean_img, phase='test',num_outputs=num_classes)
@@ -59,7 +59,7 @@ Returns two equivalent resnet networks
 '''
 #the second one is used as backup of first one to calculate old sigmoid values
 def prepare_networks(gpu,image_batch, nb_classes):
-  mean_img = tf.constant([123.68, 116.779, 103.939], dtype=tf.float32, shape=[1, 1, 1, 3], name='img_mean')
+  mean_img = tf.constant([123, 117, 104], dtype=tf.float32, shape=[1, 1, 1, 3], name='img_mean')
   scores   = []
   with tf.variable_scope('ResNet18'):
     with tf.device('/gpu:' + gpu):
@@ -71,8 +71,8 @@ def prepare_networks(gpu,image_batch, nb_classes):
   
   # First score and initialization
   variables_graph = tf.get_collection(tf.GraphKeys.WEIGHTS, scope='ResNet18')
-  for v in variables_graph:
-      print(v.name)
+  '''for v in variables_graph:
+      print(v.name)'''
   scores_stored   = []
   with tf.variable_scope('store_ResNet18'):
     with tf.device('/gpu:' + gpu):
@@ -83,7 +83,7 @@ def prepare_networks(gpu,image_batch, nb_classes):
     scope.reuse_variables()
   
   variables_graph2 = tf.get_collection(tf.GraphKeys.WEIGHTS, scope='store_ResNet18')
-  
+
   return variables_graph,variables_graph2,scores,scores_stored
 
 

@@ -8,8 +8,6 @@ import cPickle
 import os
 import scipy.io
 import sys
-# Syspath for the folder with the utils files
-#sys.path.insert(0, "/media/data/srebuffi")
 
 import utils_vgg
 import utils_icarl_core50
@@ -20,14 +18,12 @@ import sys
 num_classes = 50  # Total number of classes
 num_classes_itera = [0, 10, 15, 20, 25, 30, 35, 40, 45, 50]  # Total number of classes for each iteration
 
-batch_size = 128             # Batch size 128
-#nb_val = 50                 # Validation samples per class
-# nb_cl = 100                # Classes per group 100
+batch_size = 256             # Batch size
 nb_groups = 9                # Number of groups 10
 epochs = 10                  # Total number of epochs 60
-lr_old = 0.004               # Initial learning rate
-lr_old_other_batches = 0.01  # Initial learning rate in batches other than the first
-lr_strat = [5]               # Epochs where learning rate gets decreased
+lr_old = 0.01                # Initial learning rate
+lr_old_other_batches = 0.1  # Initial learning rate in batches other than the first
+lr_strat = [22]               # Epochs where learning rate gets decreased
 lr_factor = 5.               # Learning rate decrease factor
 gpu = '0'                    # Used GPU
 wght_decay = 0.0005          # Weight Decay
@@ -37,13 +33,13 @@ momentum = 0.9
 ######### Paths  ##########
 # Working station
 execution = sys.argv[1]
+lr_old = float(sys.argv[3])
+lr_old_other_batches = float(sys.argv[4])
 nb_proto = int(sys.argv[2]) # Number of prototypes per class: total protoset memory/ total number of classes
 
 devkit_path = '/home/lgatto/core50_batches_filelists/batches_filelists/'+execution
 train_path = '/home/admin/core50_128x128'
 save_path = '/home/lgatto/core50/savevgg/'+execution+'/'
-
-###########################
 
 #####################################################################################################
 
@@ -64,17 +60,16 @@ for _ in range(num_classes):
 files_train = [None for i in range(nb_groups)]
 labels_train = [None for i in range(nb_groups)]
 
+tf.set_random_seed(1)
+np.random.seed(1)
+
 for itera in range(nb_groups):
     files_train[itera], labels_train[itera] = utils_data_core50.prepare_train_files(train_path, devkit_path, itera)
 
-tf.set_random_seed(1000)
 
 ### Start of the main algorithm ###
-
-for itera in range(1):
+for itera in range(nb_groups):
     labels_from_cl = labels_train[itera][:]
-    # print(files_train[:5])
-    # print(label_train[:5])
     # Files to load : training samples + protoset
     print('Batch of classes number {0} arrives ...'.format(itera + 1))
     # Adding the stored exemplars to the training set
@@ -101,9 +96,7 @@ for itera in range(1):
         # No distillation
         variables_graph, variables_graph2, scores, scores_stored = utils_icarl_core50.prepare_networks(gpu, image_batch,
                                                                                                        num_classes)
-        for v in variables_graph:
-            print(v.name)
-        sys.exit(0)
+
         # Define the objective for the neural network: 1 vs all cross_entropy
         with tf.device('/gpu:0'):
             scores = tf.concat(scores, 0)  # puts elements of scores in rows
@@ -118,7 +111,6 @@ for itera in range(1):
         # Distillation
         variables_graph, variables_graph2, scores, scores_stored = utils_icarl_core50.prepare_networks(gpu, image_batch,
                                                                                                 num_classes)
-
         # Copying the network to use its predictions as ground truth labels
         op_assign = [(variables_graph2[i]).assign(variables_graph[i]) for i in range(len(variables_graph))]
 
@@ -151,8 +143,8 @@ for itera in range(1):
         sess.run(tf.global_variables_initializer())
         lr = lr_old
         # initialize the network at first iteration with imagenet pretrain
-        #if itera == 0:
-        #    utils_vgg.initialize_imagenet("vggm.npy", sess)
+        if itera == 0:
+            utils_vgg.initialize_imagenet("vggm.npy", sess)
         # Run the loading of the weights for the learning network and the copy network
         if itera > 0:
             void0 = sess.run([(variables_graph[i]).assign(save_weights[i]) for i in range(len(variables_graph))])
@@ -174,14 +166,13 @@ for itera in range(1):
                 loss_class_val, _, sc, lab = sess.run([loss_class, train_step, scores, label_batch_0],
                                                       feed_dict={learning_rate: lr})
                 loss_batch.append(loss_class_val)
-                # print("Done " + str(i))
                 # Plot the training error every 10 batches
                 if len(loss_batch) == 10:
                     print(np.mean(loss_batch))
                     loss_batch = []
 
                 # Plot the training top 1 accuracy every 80 batches
-                if (i + 1) % 80 == 0:
+                if (i + 1) % 40 == 0:
                     stat = []
                     stat += ([ll in best for ll, best in zip(lab, np.argsort(sc, axis=1)[:, -1:])])
                     stat = np.average(stat)

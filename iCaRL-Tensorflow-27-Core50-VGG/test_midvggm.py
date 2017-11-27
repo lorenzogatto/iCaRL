@@ -17,7 +17,7 @@ import utils_data_core50
 
 ######### Modifiable Settings ##########
 num_classes = 50
-batch_size = 128            # Batch size
+batch_size = 256            # Batch size
 nb_groups  = 9              # Number of groups
 top        = 1              # Choose to evaluate the top X accuracy
 gpu        = '0'            # Used GPU
@@ -46,7 +46,7 @@ files_test, labels_test = utils_data_core50.prepare_test_files(devkit_path)
 # Initialization
 acc_list = np.zeros((nb_groups,3))
 
-for itera in range(1):
+for itera in range(nb_groups):
     print("Processing network after {} increments\t".format(itera))
     
     inits,scores,label_batch,loss_class,file_string_batch,op_feature_map = utils_icarl_core50.reading_data_and_preparing_network(files_test, labels_test, gpu, itera, batch_size, train_path, num_classes, save_path, nb_proto)

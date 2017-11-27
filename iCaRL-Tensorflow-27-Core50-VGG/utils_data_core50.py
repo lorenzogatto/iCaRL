@@ -9,7 +9,7 @@ def read_data(train_path, labels_list, files_from_cl):
     image_list = [train_path + '/' + file_train for file_train in files_from_cl]
     images = tf.convert_to_tensor(image_list, dtype=tf.string)
     labels = tf.convert_to_tensor(labels_list, dtype=tf.int32)
-    input_queue = tf.train.slice_input_producer([images, labels], shuffle=True, capacity=2000)
+    input_queue = tf.train.slice_input_producer([images, labels], shuffle=True, capacity=2000, seed=1)
     image_file_content = tf.read_file(input_queue[0])
     label = input_queue[1]
     image = tf.image.resize_images(tf.image.decode_png(image_file_content, channels=3), [128, 128])

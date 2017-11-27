@@ -65,12 +65,12 @@ class Network(object):
                 continue
             with tf.variable_scope(op_name, reuse=True):
                 for param_name, data in data_dict[op_name].iteritems():
-                    print(op_name)
                     #print(data)
                     #print(type(data))
                     try:
                         var = tf.get_variable(param_name)
                         session.run(var.assign(data))
+                        print("Copying " + op_name + " param " + param_name)
                     except ValueError:
                         if not ignore_missing:
                             raise
@@ -101,10 +101,10 @@ class Network(object):
         ident = sum(t.startswith(prefix) for t, _ in self.layers.items()) + 1
         return '%s_%d' % (prefix, ident)
 
-    def make_var(self, name, shape, initializer=None):
+    def make_var(self, name, shape, initializer=None, regularizer=None):
         '''Creates a new TensorFlow variable.'''
         return tf.get_variable(name, shape, trainable=self.trainable, initializer=initializer,
-                               collections=[tf.GraphKeys.WEIGHTS, tf.GraphKeys.GLOBAL_VARIABLES])
+                               collections=[tf.GraphKeys.WEIGHTS, tf.GraphKeys.GLOBAL_VARIABLES], regularizer=regularizer)
 
     def validate_padding(self, padding):
         '''Verifies that the padding is one of the supported ones.'''
@@ -133,7 +133,7 @@ class Network(object):
         # Convolution for a given input and kernel
         convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
         with tf.variable_scope(name) as scope:
-            kernel = self.make_var('weights', shape=[k_h, k_w, c_i / group, c_o])
+            kernel = self.make_var('weights', shape=[k_h, k_w, c_i / group, c_o], regularizer=tf.nn.l2_loss)
             if group == 1:
                 # This is the common-case. Convolve the input without any further complications.
                 output = convolve(input, kernel)
@@ -197,7 +197,7 @@ class Network(object):
         return tf.add_n(inputs, name=name)
 
     @layer
-    def fc(self, input, num_out, name, relu=True):
+    def fc(self, input, num_out, name, relu=True, init_stddev=0.01):
         with tf.variable_scope(name) as scope:
             input_shape = input.get_shape()
             if input_shape.ndims == 4:
@@ -208,7 +208,9 @@ class Network(object):
                 feed_in = tf.reshape(input, [-1, dim])
             else:
                 feed_in, dim = (input, input_shape[-1].value)
-            weights = self.make_var('weights', shape=[dim, num_out], initializer=tf.contrib.layers.xavier_initializer())
+            weights = self.make_var('weights', shape=[dim, num_out],
+                                    initializer=tf.random_normal_initializer(mean=0, stddev=init_stddev, seed=1),
+                                    regularizer=tf.nn.l2_loss)
             biases = self.make_var('biases', [num_out], tf.zeros_initializer())
             op = tf.nn.relu_layer if relu else tf.nn.xw_plus_b
             fc = op(feed_in, weights, biases, name=scope.name)
@@ -254,4 +256,4 @@ class Network(object):
     @layer
     def dropout(self, input, keep_prob, name):
         keep = 1 - self.use_dropout + (self.use_dropout * keep_prob)
-        return tf.nn.dropout(input, keep, name=name)
+        return tf.nn.dropout(input, keep, name=name, seed=1)
