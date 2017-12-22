@@ -16,7 +16,7 @@ Execute ``main_icarl_core50.py`` to launch the code.
 Settings can easily be changed by passing parameters to the function. Call the script with ``-h`` for infos.
 Some parameters, like dataset location, are hardcoded in that file.
 
-PS: if your data presents a different folder architecture, you can change it in ``utils_data.py``
+Example execution command: ``python2.7 main_midvggm_tf.py --network mvggnet --image_size 128 --run NC_inc/run0 --lr_1 0.02 --lr_o 0.05 --stored_images 10 > output.txt``
 
 ##### Output files
 - ``model-iteration-i.pickle``: storing of the network parameters after training each increment of classes
