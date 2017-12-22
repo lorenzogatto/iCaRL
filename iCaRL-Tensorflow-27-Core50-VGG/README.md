@@ -6,6 +6,8 @@
 - Tensorflow (version 1.1)
 - Scipy (working with 0.19)
 - Core50 dataset
+- Pretrained networks for caffenet and vggnet-m (http://www.robots.ox.ac.uk/~vgg/research/deep_eval/) 
+obtained with https://github.com/ethereon/caffe-tensorflow.
 
 #### Training
 
@@ -29,3 +31,17 @@ Run the script with the same parameters you used for training.
 
 ##### Output file
 - ``results_topX_acc_Y_clZ.npy``: accuracy file with each line corresponding to an increment. 1st column is with iCaRL, 2nd column with Hybrid 1 and 3rd column is the theoretical case of NCM.
+
+####Parameters I used
+Always 5 epochs and 50 img/classe unless differently specified.
+
+CaffeNet: --lr_1: 0.08 --lr_o 0.04
+
+MVGGNet: --lr_1: 0.02 --lr_o 0.05
+
+To run the networks in full size, you'd need to modify
+``mvggm.py`` or ``mcaffenet.py`` with
+``net.load(model_data_path, sess, skip_op=['fc8'])`` to make it skip 
+(from the loading of the pretrained model) only the last layer, 
+changing the names 'mid_fc*' to 'fc*' in the network specification
+and changing the dimensions of the first 2 FC layers to 4096. 
