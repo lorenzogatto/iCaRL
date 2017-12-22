@@ -9,24 +9,15 @@ import os
 from scipy.spatial.distance import cdist
 import scipy.io
 import sys
-# Syspath for the folder with the utils files
-#sys.path.insert(0, "/data/sylvestre")
 
 import utils_icarl_core50
 import utils_data_core50
+from config import *
 
-######### Modifiable Settings ##########
-num_classes = 50
-batch_size = 256            # Batch size
-nb_groups  = 9              # Number of groups
-top        = 1              # Choose to evaluate the top X accuracy
-gpu        = '0'            # Used GPU
-########################################
+top = 1              # Choose to evaluate the top X accuracy
 
 ######### Paths  ##########
 # Working station
-execution = sys.argv[1]
-
 devkit_path = '/home/lgatto/core50_batches_filelists/batches_filelists/'+execution
 train_path = '/home/admin/core50_128x128'
 save_path = '/home/lgatto/core50/savevgg/'+execution+'/'
@@ -34,9 +25,8 @@ save_path = '/home/lgatto/core50/savevgg/'+execution+'/'
 ###########################
 
 file_suffix = execution.replace('/', '')
-nb_proto = int(sys.argv[2])
 # Load class means
-str_class_means = 'class_means'+file_suffix+str(nb_proto)+'.pickle'
+str_class_means = 'outputs/class_means'+file_suffix+str(nb_proto)+'.pickle'
 with open(str_class_means,'rb') as fp:
       class_means = cPickle.load(fp)
 
@@ -44,9 +34,9 @@ with open(str_class_means,'rb') as fp:
 files_test, labels_test = utils_data_core50.prepare_test_files(devkit_path)
 
 # Initialization
-acc_list = np.zeros((nb_groups,3))
+acc_list = np.zeros((nb_batches,3))
 
-for itera in range(nb_groups):
+for itera in range(nb_batches):
     print("Processing network after {} increments\t".format(itera))
     
     inits,scores,label_batch,loss_class,file_string_batch,op_feature_map = utils_icarl_core50.reading_data_and_preparing_network(files_test, labels_test, gpu, itera, batch_size, train_path, num_classes, save_path, nb_proto)

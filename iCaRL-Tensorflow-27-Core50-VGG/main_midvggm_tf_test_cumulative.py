@@ -1,3 +1,6 @@
+'''
+    This module is messy, and that's because I didn't need for my final experiments.
+'''
 import tensorflow as tf
 config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
@@ -11,23 +14,24 @@ import sys
 # Syspath for the folder with the utils files
 #sys.path.insert(0, "/media/data/srebuffi")
 
-import utils_vgg
+import utils_network
 import utils_icarl_core50
 import utils_data_core50
 import sys
+from config import *
 
 ######### Modifiable Settings ##########
 num_classes = 50  # Total number of classes
 num_classes_itera = [0, 50, 50, 50, 50, 50, 50, 50, 50, 50]  # Total number of classes for each iteration
 
-batch_size = 128             # Batch size 128
+batch_size = 256             # Batch size 128
 #nb_val = 50                 # Validation samples per class
 # nb_cl = 100                # Classes per group 100
 nb_groups = 9                # Number of groups 10
-epochs = 15                  # Total number of epochs 60
-lr_old = 0.01               # Initial learning rate
-lr_old_other_batches = 0.04  # Initial learning rate in batches other than the first
-lr_strat = [5]               # Epochs where learning rate gets decreased
+epochs = 3                  # Total number of epochs 60
+lr_old = initial_lr_first_batch               # Initial learning rate
+lr_old_other_batches = 0.1  # Initial learning rate in batches other than the first
+lr_strat = [4]               # Epochs where learning rate gets decreased
 lr_factor = 5.               # Learning rate decrease factor
 gpu = '0'                    # Used GPU
 wght_decay = 0.0005          # Weight Decay
@@ -36,8 +40,6 @@ momentum = 0.9
 
 ######### Paths  ##########
 # Working station
-execution = sys.argv[1]
-nb_proto = int(sys.argv[2]) # Number of prototypes per class: total protoset memory/ total number of classes
 
 devkit_path = '/home/lgatto/core50_batches_filelists/batches_filelists/'+execution
 train_path = '/home/admin/core50_128x128'
@@ -45,11 +47,14 @@ save_path = '/home/lgatto/core50/savevgg/'+execution+'/'
 
 ###########################
 
+tf.set_random_seed(1)
+np.random.seed(1)
+
 #####################################################################################################
 
 ### Initialization of some variables ###
 loss_batch = []
-class_means = np.zeros((2048, num_classes, 2, nb_groups))
+class_means = np.zeros((4096, num_classes, 2, nb_groups))
 files_protoset = []  # prototypes per class. Will contain file names
 for _ in range(num_classes):
     files_protoset.append([])
@@ -102,10 +107,10 @@ for itera in range(1):
                                                                                                        num_classes)
 
         # Define the objective for the neural network: 1 vs all cross_entropy
-        with tf.device('/gpu:0'):
+        with tf.device('/cpu:0'):
             scores = tf.concat(scores, 0)  # puts elements of scores in rows
             l2_reg = wght_decay * tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope='ResNet18'))
-            loss_class = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=label_batch, logits=scores))
+            loss_class = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=label_batch, logits=scores)) #sigmod -> softmax
             loss = loss_class + l2_reg
             learning_rate = tf.placeholder(tf.float32, shape=[])
             opt = tf.train.MomentumOptimizer(learning_rate, momentum)
@@ -149,7 +154,7 @@ for itera in range(1):
         lr = lr_old
         # initialize the network at first iteration with imagenet pretrain
         if itera == 0:
-            utils_vgg.initialize_imagenet("vggm.npy", sess)
+            utils_network.initialize_imagenet(sess)
         # Run the loading of the weights for the learning network and the copy network
         if itera > 0:
             void0 = sess.run([(variables_graph[i]).assign(save_weights[i]) for i in range(len(variables_graph))])
@@ -187,7 +192,7 @@ for itera in range(1):
         print("End batch")
         # copy weights to store network
         save_weights = sess.run([variables_graph[i] for i in range(len(variables_graph))])
-        utils_vgg.save_model(save_path +str(nb_proto)+'model-iteration-%i.pickle' % itera, scope='ResNet18', sess=sess)
+        utils_network.save_model(save_path + str(nb_proto) + 'model-iteration-%i.pickle' % itera, scope='ResNet18', sess=sess)
     print("Resetting graph")
     # Reset the graph
     tf.reset_default_graph()
@@ -244,7 +249,7 @@ for itera in range(1):
     # Reset the graph
     tf.reset_default_graph()
 
-    print(files_protoset)
+    #print(files_protoset)
     # Class means for iCaRL and NCM
     print('Computing theoretical class means for NCM and mean-of-exemplars for iCaRL ...')
     for iteration2 in range(itera + 1):
